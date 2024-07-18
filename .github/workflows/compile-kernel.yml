@@ -13,9 +13,10 @@ on:
       kernel_source:
         description: "Select the kernel source"
         required: false
-        default: "unifreq"
+        default: "ljjlinjunjie"
         type: choice
         options:
+          - ljjlinjunjie
           - unifreq
           - codesnas
       kernel_version:
