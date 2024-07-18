@@ -71,11 +71,11 @@ on:
       kernel_sign:
         description: "Set the kernel custom signature"
         required: false
-        default: "-ophub"
+        default: "-ljj"
         type: choice
         options:
           - -ophub
-          - -yourname
+          - -ljj
 
 env:
   TZ: America/New_York
