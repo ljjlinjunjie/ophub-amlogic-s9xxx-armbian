@@ -22,7 +22,7 @@ on:
       armbian_board:
         description: "Select device board."
         required: false
-        default: "all"
+        default: "s905lb-r3300l"
         type: choice
         options:
           - all
@@ -165,7 +165,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.1.y_6.6.y"
+        default: "6.6.y"
         type: choice
         options:
           - 5.4.y
@@ -187,6 +187,7 @@ on:
         type: choice
         options:
           - ophub/kernel
+          - ljjlinjunjie/linux-6.6.y
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
