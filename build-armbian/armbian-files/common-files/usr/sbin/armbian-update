@@ -33,6 +33,7 @@
 # update_kernel      : Update the kernel
 # update_uboot       : Update the uboot
 # update_initrd_addr : Adjust vmlinuz for Amlogic devices
+# update_os_version  : Update the Armbian OS version
 #
 # sos_kernel         : Restore the kernel
 #
@@ -48,6 +49,8 @@ backup_path="/ddbr/backup"
 rescue_path="/ddbr/rescue"
 # Set the release check file
 ophub_release_file="/etc/ophub-release"
+armbian_release_file="/etc/armbian-release"
+armbian_image_file="/etc/armbian-image-release"
 # Set default installation mainline u-boot (-m)
 auto_mainline_uboot="no"
 
@@ -503,23 +506,23 @@ update_kernel() {
     [[ "$(ls /boot/dtb/${PLATFORM} -l 2>/dev/null | grep "^-" | wc -l)" -ge "2" ]] || error_msg "/boot/dtb/${PLATFORM} files is missing."
     echo -e "${INFO} (2/4) Unpacking [ dtb-${PLATFORM}-${kernel_name}.tar.gz ] succeeded."
 
-    # 03. For /usr/lib/modules/${kernel_name}
-    rm -rf /usr/lib/modules/*
-    tar -mxzf modules-${kernel_name}.tar.gz -C /usr/lib/modules
-    (cd /usr/lib/modules/${kernel_name}/ && rm -f build source && ln -sf /usr/src/${header_path} build)
-    [[ -d "/usr/lib/modules/${kernel_name}" ]] || error_msg "/usr/lib/modules/${kernel_name} kernel folder is missing."
-    echo -e "${INFO} (3/4) Unpacking [ modules-${kernel_name}.tar.gz ] succeeded."
-
-    # 04. For /usr/src/linux-headers-${kernel_name}, header file is optional
+    # 03. For /usr/src/linux-headers-${kernel_name}, header file is optional
     if [[ -f "header-${kernel_name}.tar.gz" ]]; then
         header_path="linux-headers-${kernel_name}"
         rm -rf /usr/src/linux-headers-* && mkdir -p "/usr/src/${header_path}"
         tar -mxzf header-${kernel_name}.tar.gz -C /usr/src/${header_path}
         [[ -d "/usr/src/${header_path}/include" ]] || error_msg "/usr/src/${header_path}/include folder is missing."
-        echo -e "${INFO} (4/4) Unpacking [ header-${kernel_name}.tar.gz ] succeeded."
+        echo -e "${INFO} (3/4) Unpacking [ header-${kernel_name}.tar.gz ] succeeded."
     else
-        echo -e "${PROMPT} (4/4) [ header-${kernel_name}.tar.gz ] file does not exist, skip unpacking."
+        echo -e "${PROMPT} (3/4) [ header-${kernel_name}.tar.gz ] file does not exist, skip unpacking."
     fi
+
+    # 04. For /usr/lib/modules/${kernel_name}
+    rm -rf /usr/lib/modules/*
+    tar -mxzf modules-${kernel_name}.tar.gz -C /usr/lib/modules
+    [[ -n "${header_path}" ]] && (cd /usr/lib/modules/${kernel_name}/ && rm -f build source && ln -sf /usr/src/${header_path} build)
+    [[ -d "/usr/lib/modules/${kernel_name}" ]] || error_msg "/usr/lib/modules/${kernel_name} kernel folder is missing."
+    echo -e "${INFO} (4/4) Unpacking [ modules-${kernel_name}.tar.gz ] succeeded."
 
     # Update release file
     sed -i "s|^KERNEL_VERSION=.*|KERNEL_VERSION='${KERNEL_VERSION}'|g" ${ophub_release_file}
@@ -649,6 +652,31 @@ update_initrd_addr() {
     fi
 
     echo -e "${INFO} All checked."
+    sync && echo ""
+}
+
+# Update the Armbian OS version
+update_os_version() {
+    echo -e "${STEPS} Start updating Armbian OS version..."
+
+    # Get the latest Armbian OS version
+    os_version="$(
+        curl -fsSL -m 15 \
+            https://github.com/armbian/build/tags |
+            grep -oE 'Link\">v.*</a>' |
+            grep -oE '[2-9][0-9]\.[0-9]{1,2}\.[0-9]{1,2}' |
+            sort -urV | head -n 1
+    )"
+
+    # Update the Armbian OS version
+    if [[ ${?} -eq 0 && -n "${os_version}" ]]; then
+        echo -e "${INFO} The latest Armbian OS version: [ ${os_version} ]"
+        sed -i "s|^VERSION=.*|VERSION=\"${os_version}\"|g" ${armbian_image_file} ${armbian_release_file}
+        sed -i "s|^REVISION=.*|REVISION=\"${os_version}\"|g" ${armbian_image_file} ${armbian_release_file}
+    else
+        echo -e "${PROMPT} Failed to query the latest Armbian OS version, skip updating."
+    fi
+
     sync && echo ""
 }
 
@@ -828,6 +856,7 @@ else
         update_uboot
         update_initrd_addr
     }
+    update_os_version
 
     # Kernel update successful
     sync && sleep 3
